@@ -12,9 +12,11 @@ add_compile_options(-std=c++11)
 ################################################################################
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  actionlib
   sensor_msgs
   geometry_msgs
   trajectory_msgs
+  control_msgs
   dynamixel_workbench_msgs
   dynamixel_workbench_toolbox
   cmake_modules
@@ -57,7 +59,7 @@ endif(NOT ${YAML_CPP_VERSION} VERSION_LESS "0.5")
 ################################################################################
 catkin_package(
  INCLUDE_DIRS include
- CATKIN_DEPENDS roscpp sensor_msgs geometry_msgs dynamixel_workbench_msgs trajectory_msgs dynamixel_workbench_toolbox cmake_modules
+ CATKIN_DEPENDS roscpp actionlib sensor_msgs geometry_msgs dynamixel_workbench_msgs trajectory_msgs control_msgs dynamixel_workbench_toolbox cmake_modules
  DEPENDS EIGEN3
 )
 
