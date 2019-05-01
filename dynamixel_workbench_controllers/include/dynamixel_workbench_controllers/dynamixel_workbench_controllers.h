@@ -27,6 +27,8 @@
 #include <geometry_msgs/Twist.h>
 #include <trajectory_msgs/JointTrajectory.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
+#include <actionlib/server/simple_action_server.h>
+#include <control_msgs/FollowJointTrajectoryAction.h>
 
 #include <dynamixel_workbench_toolbox/dynamixel_workbench.h>
 #include <dynamixel_workbench_msgs/DynamixelStateList.h>
@@ -68,6 +70,10 @@ class DynamixelController
 
   // ROS Service Server
   ros::ServiceServer dynamixel_command_server_;
+
+  // ROS Action Server
+  actionlib::SimpleActionServer<control_msgs::FollowJointTrajectoryAction> follow_joint_trajectory_server_;
+  bool follow_action_initialized_;
 
   // ROS Service Client
 
@@ -126,6 +132,8 @@ class DynamixelController
   void trajectoryMsgCallback(const trajectory_msgs::JointTrajectory::ConstPtr &msg);
   bool dynamixelCommandMsgCallback(dynamixel_workbench_msgs::DynamixelCommand::Request &req,
                                    dynamixel_workbench_msgs::DynamixelCommand::Response &res);
+  void followJointTrajectoryActionGoalCallback();
+  void followJointTrajectoryActionPreemptCallback();
 };
 
 #endif //DYNAMIXEL_WORKBENCH_CONTROLLERS_H

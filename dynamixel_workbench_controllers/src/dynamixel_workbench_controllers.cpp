@@ -26,7 +26,9 @@ DynamixelController::DynamixelController()
    use_moveit_(false),
    wheel_separation_(0.0f),
    wheel_radius_(0.0f),
-   is_moving_(false)
+   is_moving_(false),
+   follow_joint_trajectory_server_(priv_node_handle_, "follow_joint_trajectory_action", false),
+   follow_action_initialized_(false)
 {
   is_joint_state_topic_ = priv_node_handle_.param<bool>("use_joint_states_topic", true);
   is_cmd_vel_topic_ = priv_node_handle_.param<bool>("use_cmd_vel_topic", false);
@@ -323,6 +325,10 @@ void DynamixelController::initSubscriber()
 void DynamixelController::initServer()
 {
   dynamixel_command_server_ = priv_node_handle_.advertiseService("dynamixel_command", &DynamixelController::dynamixelCommandMsgCallback, this);
+
+  follow_joint_trajectory_server_.registerGoalCallback(boost::bind(&DynamixelController::followJointTrajectoryActionGoalCallback, this));
+  follow_joint_trajectory_server_.registerPreemptCallback(boost::bind(&DynamixelController::followJointTrajectoryActionPreemptCallback, this));
+  follow_joint_trajectory_server_.start();
 }
 
 void DynamixelController::readCallback(const ros::TimerEvent&)
@@ -463,6 +469,9 @@ void DynamixelController::publishCallback(const ros::TimerEvent&)
     joint_state_msg_.velocity.clear();
     joint_state_msg_.effort.clear();
 
+    control_msgs::FollowJointTrajectoryFeedback follow_joint_trajectory_feedback;
+    follow_joint_trajectory_feedback.header.stamp = joint_state_msg_.header.stamp;
+
     uint8_t id_cnt = 0;
     for (auto const& dxl:dynamixel_)
     {
@@ -486,10 +495,19 @@ void DynamixelController::publishCallback(const ros::TimerEvent&)
       joint_state_msg_.velocity.push_back(velocity);
       joint_state_msg_.position.push_back(position);
 
+      follow_joint_trajectory_feedback.joint_names.push_back(dxl.first);
+      follow_joint_trajectory_feedback.desired.positions.push_back(position); // ToDo
+      follow_joint_trajectory_feedback.actual.positions.push_back(position);
+      follow_joint_trajectory_feedback.error.positions.push_back(0);
+
       id_cnt++;
     }
 
     joint_states_pub_.publish(joint_state_msg_);
+
+    if (follow_action_initialized_) {
+      follow_joint_trajectory_server_.publishFeedback(follow_joint_trajectory_feedback);
+    }
   }
 
 #ifdef DEBUG
@@ -628,7 +646,7 @@ void DynamixelController::trajectoryMsgCallback(const trajectory_msgs::JointTraj
   bool result = false;
   WayPoint wp;
 
-  if (is_moving_ == false)
+  if (true) // (is_moving_ == false)
   {
     jnt_tra_msg_->joint_names.clear();
     jnt_tra_msg_->points.clear();
@@ -751,6 +769,24 @@ bool DynamixelController::dynamixelCommandMsgCallback(dynamixel_workbench_msgs::
   res.comm_result = result;
 
   return true;
+}
+
+void DynamixelController::followJointTrajectoryActionGoalCallback()
+{
+  control_msgs::FollowJointTrajectoryGoalConstPtr goal = follow_joint_trajectory_server_.acceptNewGoal();
+  trajectory_msgs::JointTrajectory::ConstPtr msg = boost::make_shared<trajectory_msgs::JointTrajectory>(goal->trajectory);
+  trajectoryMsgCallback(msg);
+
+  follow_action_initialized_ = true;
+
+  control_msgs::FollowJointTrajectoryResult result;
+  result.error_code = control_msgs::FollowJointTrajectoryResult::SUCCESSFUL;
+  follow_joint_trajectory_server_.setSucceeded(result);
+}
+
+void DynamixelController::followJointTrajectoryActionPreemptCallback()
+{
+  follow_joint_trajectory_server_.setPreempted();
 }
 
 int main(int argc, char **argv)
