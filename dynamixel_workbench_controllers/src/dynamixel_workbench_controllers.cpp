@@ -357,7 +357,7 @@ void DynamixelController::readCallback(const ros::TimerEvent&)
     id_array[id_cnt++] = (uint8_t)dxl.second;
   }
 #ifndef DEBUG
-  if (is_moving_ == false)
+  if (true) // (is_moving_ == false)
   {
 #endif
     if (dxl_wb_->getProtocolVersion() == 2.0f)
