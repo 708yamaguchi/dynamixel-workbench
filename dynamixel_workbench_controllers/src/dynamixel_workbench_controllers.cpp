@@ -498,7 +498,7 @@ void DynamixelController::publishCallback(const ros::TimerEvent&)
       follow_joint_trajectory_feedback.joint_names.push_back(dxl.first);
       follow_joint_trajectory_feedback.desired.positions.push_back(position); // ToDo
       follow_joint_trajectory_feedback.actual.positions.push_back(position);
-      follow_joint_trajectory_feedback.error.positions.push_back(0);
+      follow_joint_trajectory_feedback.error.positions.push_back(0); // ToDo
 
       id_cnt++;
     }
