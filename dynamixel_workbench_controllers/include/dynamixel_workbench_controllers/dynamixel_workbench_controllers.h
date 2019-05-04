@@ -109,6 +109,7 @@ class DynamixelController
 
   std::map<std::string, uint32_t> teaching_torque_;
   std::map<std::string, uint32_t> playing_torque_;
+  std::map<std::string, uint32_t> teaching_current_thre_;
 
  public:
   DynamixelController();

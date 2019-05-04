@@ -242,8 +242,9 @@ bool DynamixelController::initTeachingPlayback(void)
 {
   for (auto const& dxl:dynamixel_)
     {
-      teaching_torque_[dxl.first] = 50;
+      teaching_torque_[dxl.first] = 1023;
       playing_torque_[dxl.first] = 1023;
+      teaching_current_thre_[dxl.first] = 120;
     }
 
   return true;
@@ -623,28 +624,39 @@ void DynamixelController::writeCallback(const ros::TimerEvent&)
 
   if (is_teaching_ == true) {
     // read present position
-    uint32_t read_position;
+    uint16_t length_of_data = control_items_["Present_Position"]->data_length +
+                              control_items_["Present_Velocity"]->data_length +
+                              control_items_["Present_Current"]->data_length;
+    uint32_t all_data[length_of_data];
     id_cnt = 0;
     for (auto const& dxl:dynamixel_)
     {
-      id_array[id_cnt] = (uint8_t)dxl.second;
       result = dxl_wb_->readRegister((uint8_t)dxl.second,
                                      control_items_["Present_Position"]->address,
-                                     control_items_["Present_Position"]->data_length,
-                                     &read_position,
+                                     length_of_data,
+                                     all_data,
                                      &log);
       if (result == false)
       {
         ROS_ERROR("%s", log);
       }
-      dynamixel_position[id_cnt] = read_position;
-      id_cnt++;
+      uint16_t current_raw = DXL_MAKEWORD(all_data[4], all_data[5]);
+      int current = (((0x1 & (current_raw >> 10)) == 1) ? -1 : 1) * (0x3ff & current_raw);
+      printf("current[%8s] = %4d (%4u), ", dxl.first.c_str(), current, current_raw);
+      if (abs(current) > teaching_current_thre_[dxl.first]) {
+        id_array[id_cnt] = (uint8_t)dxl.second;
+        dynamixel_position[id_cnt] = DXL_MAKEWORD(all_data[0], all_data[1]);
+        id_cnt++;
+      }
     }
+    printf("\n");
     // write present position to goal position
-    result = dxl_wb_->syncWrite(SYNC_WRITE_HANDLER_FOR_GOAL_POSITION, id_array, (uint8_t)dynamixel_.size(), dynamixel_position, 1, &log);
-    if (result == false)
-    {
-      ROS_ERROR("%s", log);
+    if (id_cnt > 0) {
+      result = dxl_wb_->syncWrite(SYNC_WRITE_HANDLER_FOR_GOAL_POSITION, id_array, id_cnt, dynamixel_position, 1, &log);
+      if (result == false)
+      {
+        ROS_ERROR("%s", log);
+      }
     }
   } else if (is_moving_ == true)
   {
