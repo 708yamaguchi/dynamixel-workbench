@@ -133,11 +133,15 @@ bool DynamixelController::initDynamixels(void)
   {
     dxl_wb_->torqueOff((uint8_t)dxl.second);
 
+    teaching_current_thre_[dxl.first] = 100;
+
     for (auto const& info:dynamixel_info_)
     {
       if (dxl.first == info.first)
       {
-        if (info.second.item_name != "ID" && info.second.item_name != "Baud_Rate")
+        if (info.second.item_name == "Teaching_Current_Thre") {
+          teaching_current_thre_[dxl.first] = info.second.value;
+        } else if (info.second.item_name != "ID" && info.second.item_name != "Baud_Rate")
         {
           bool result = dxl_wb_->itemWrite((uint8_t)dxl.second, info.second.item_name.c_str(), info.second.value, &log);
           if (result == false)
@@ -244,7 +248,6 @@ bool DynamixelController::initTeachingPlayback(void)
     {
       teaching_torque_[dxl.first] = 1023;
       playing_torque_[dxl.first] = 1023;
-      teaching_current_thre_[dxl.first] = 120;
     }
 
   return true;
@@ -642,14 +645,14 @@ void DynamixelController::writeCallback(const ros::TimerEvent&)
       }
       uint16_t current_raw = DXL_MAKEWORD(all_data[4], all_data[5]);
       int current = (((0x1 & (current_raw >> 10)) == 1) ? -1 : 1) * (0x3ff & current_raw);
-      printf("current[%8s] = %4d (%4u), ", dxl.first.c_str(), current, current_raw);
+      // printf("current[%8s] = %4d (%4u), ", dxl.first.c_str(), current, current_raw);
       if (abs(current) > teaching_current_thre_[dxl.first]) {
         id_array[id_cnt] = (uint8_t)dxl.second;
         dynamixel_position[id_cnt] = DXL_MAKEWORD(all_data[0], all_data[1]);
         id_cnt++;
       }
     }
-    printf("\n");
+    // printf("\n");
     // write present position to goal position
     if (id_cnt > 0) {
       result = dxl_wb_->syncWrite(SYNC_WRITE_HANDLER_FOR_GOAL_POSITION, id_array, id_cnt, dynamixel_position, 1, &log);
