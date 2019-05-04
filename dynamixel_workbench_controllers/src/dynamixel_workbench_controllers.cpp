@@ -346,8 +346,8 @@ void DynamixelController::initServer()
   follow_joint_trajectory_server_.registerPreemptCallback(boost::bind(&DynamixelController::followJointTrajectoryActionPreemptCallback, this));
   follow_joint_trajectory_server_.start();
 
-  set_teaching_mode_server_ = node_handle_.advertiseService("/set_teaching_mode", &DynamixelController::setTeachingModeCallback, this);
-  set_playing_mode_server_ = node_handle_.advertiseService("/set_playing_mode", &DynamixelController::setPlayingModeCallback, this);
+  set_teaching_mode_server_ = priv_node_handle_.advertiseService("set_teaching_mode", &DynamixelController::setTeachingModeCallback, this);
+  set_playing_mode_server_ = priv_node_handle_.advertiseService("set_playing_mode", &DynamixelController::setPlayingModeCallback, this);
 }
 
 void DynamixelController::readCallback(const ros::TimerEvent&)
