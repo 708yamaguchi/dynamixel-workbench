@@ -29,6 +29,7 @@
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 #include <actionlib/server/simple_action_server.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
+#include <std_srvs/Empty.h>
 
 #include <dynamixel_workbench_toolbox/dynamixel_workbench.h>
 #include <dynamixel_workbench_msgs/DynamixelStateList.h>
@@ -70,6 +71,8 @@ class DynamixelController
 
   // ROS Service Server
   ros::ServiceServer dynamixel_command_server_;
+  ros::ServiceServer set_teaching_mode_server_;
+  ros::ServiceServer set_playing_mode_server_;
 
   // ROS Action Server
   actionlib::SimpleActionServer<control_msgs::FollowJointTrajectoryAction> follow_joint_trajectory_server_;
@@ -102,6 +105,10 @@ class DynamixelController
   double pub_period_;
 
   bool is_moving_;
+  bool is_teaching_;
+
+  std::map<std::string, uint32_t> teaching_torque_;
+  std::map<std::string, uint32_t> playing_torque_;
 
  public:
   DynamixelController();
@@ -113,6 +120,7 @@ class DynamixelController
   bool initDynamixels(void);
   bool initControlItems(void);
   bool initSDKHandlers(void);
+  bool initTeachingPlayback(void);
   bool getPresentPosition(std::vector<std::string> dxl_name);
 
   double getReadPeriod(){return read_period_;}
@@ -134,6 +142,11 @@ class DynamixelController
                                    dynamixel_workbench_msgs::DynamixelCommand::Response &res);
   void followJointTrajectoryActionGoalCallback();
   void followJointTrajectoryActionPreemptCallback();
+  bool setTeachingModeCallback(std_srvs::Empty::Request &req,
+                               std_srvs::Empty::Response &res);
+  bool setPlayingModeCallback(std_srvs::Empty::Request &req,
+                              std_srvs::Empty::Response &res);
+  void setTorqueForTeachingPlayback(std::map<std::string, uint32_t> torque);
 
   void sendMotionFromYaml(const std::string yaml_file);
   bool getTrajectoryInfo(const std::string yaml_file, trajectory_msgs::JointTrajectory *jnt_tra_msg);

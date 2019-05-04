@@ -27,6 +27,7 @@ DynamixelController::DynamixelController()
    wheel_separation_(0.0f),
    wheel_radius_(0.0f),
    is_moving_(false),
+   is_teaching_(false),
    follow_joint_trajectory_server_(priv_node_handle_, "follow_joint_trajectory_action", false),
    follow_action_initialized_(false)
 {
@@ -237,6 +238,17 @@ bool DynamixelController::initSDKHandlers(void)
   return result;
 }
 
+bool DynamixelController::initTeachingPlayback(void)
+{
+  for (auto const& dxl:dynamixel_)
+    {
+      teaching_torque_[dxl.first] = 50;
+      playing_torque_[dxl.first] = 1023;
+    }
+
+  return true;
+}
+
 bool DynamixelController::getPresentPosition(std::vector<std::string> dxl_name)
 {
   bool result = false;
@@ -329,6 +341,9 @@ void DynamixelController::initServer()
   follow_joint_trajectory_server_.registerGoalCallback(boost::bind(&DynamixelController::followJointTrajectoryActionGoalCallback, this));
   follow_joint_trajectory_server_.registerPreemptCallback(boost::bind(&DynamixelController::followJointTrajectoryActionPreemptCallback, this));
   follow_joint_trajectory_server_.start();
+
+  set_teaching_mode_server_ = node_handle_.advertiseService("/set_teaching_mode", &DynamixelController::setTeachingModeCallback, this);
+  set_playing_mode_server_ = node_handle_.advertiseService("/set_playing_mode", &DynamixelController::setPlayingModeCallback, this);
 }
 
 void DynamixelController::readCallback(const ros::TimerEvent&)
@@ -606,7 +621,32 @@ void DynamixelController::writeCallback(const ros::TimerEvent&)
     id_cnt++;
   }
 
-  if (is_moving_ == true)
+  if (is_teaching_ == true) {
+    // read present position
+    uint32_t read_position;
+    id_cnt = 0;
+    for (auto const& dxl:dynamixel_)
+    {
+      id_array[id_cnt] = (uint8_t)dxl.second;
+      result = dxl_wb_->readRegister((uint8_t)dxl.second,
+                                     control_items_["Present_Position"]->address,
+                                     control_items_["Present_Position"]->data_length,
+                                     &read_position,
+                                     &log);
+      if (result == false)
+      {
+        ROS_ERROR("%s", log);
+      }
+      dynamixel_position[id_cnt] = read_position;
+      id_cnt++;
+    }
+    // write present position to goal position
+    result = dxl_wb_->syncWrite(SYNC_WRITE_HANDLER_FOR_GOAL_POSITION, id_array, (uint8_t)dynamixel_.size(), dynamixel_position, 1, &log);
+    if (result == false)
+    {
+      ROS_ERROR("%s", log);
+    }
+  } else if (is_moving_ == true)
   {
     for (uint8_t index = 0; index < id_cnt; index++)
       dynamixel_position[index] = dxl_wb_->convertRadian2Value(id_array[index], jnt_tra_msg_->points[point_cnt].positions.at(index));
@@ -782,6 +822,36 @@ void DynamixelController::followJointTrajectoryActionPreemptCallback()
   follow_joint_trajectory_server_.setPreempted();
 }
 
+bool DynamixelController::setTeachingModeCallback(std_srvs::Empty::Request &req,
+                                                  std_srvs::Empty::Response &res)
+{
+  setTorqueForTeachingPlayback(teaching_torque_);
+  is_teaching_ = true;
+  return true;
+}
+
+bool DynamixelController::setPlayingModeCallback(std_srvs::Empty::Request &req,
+                                                 std_srvs::Empty::Response &res)
+{
+  setTorqueForTeachingPlayback(playing_torque_);
+  is_teaching_ = false;
+  return true;
+}
+
+void DynamixelController::setTorqueForTeachingPlayback(std::map<std::string, uint32_t> torque)
+{
+  bool result = false;
+  const char* log;
+
+  for (auto const& dxl:dynamixel_) {
+    result = dxl_wb_->itemWrite((uint8_t)dxl.second, "Torque_Limit", torque[dxl.first], &log);
+    if (result == false) {
+      ROS_ERROR("%s", log);
+      ROS_ERROR("Failed to write value[%d] on items[%s] to Dynamixel[ID : %d]", torque[dxl.first], "Torque_Limit", (uint8_t)dxl.second);
+    }
+  }
+}
+
 void DynamixelController::sendMotionFromYaml(const std::string yaml_file)
 {
   trajectory_msgs::JointTrajectory traj_msg;
@@ -915,6 +985,8 @@ int main(int argc, char **argv)
     ROS_ERROR("Failed to set Dynamixel SDK Handler");
     return 0;
   }
+
+  dynamixel_controller.initTeachingPlayback();
 
   dynamixel_controller.initPublisher();
   dynamixel_controller.initSubscriber();
