@@ -782,10 +782,77 @@ void DynamixelController::followJointTrajectoryActionPreemptCallback()
   follow_joint_trajectory_server_.setPreempted();
 }
 
+void DynamixelController::sendMotionFromYaml(const std::string yaml_file)
+{
+  trajectory_msgs::JointTrajectory traj_msg;
+  bool result = getTrajectoryInfo(yaml_file, &traj_msg);
+  if (result == false) {
+    ROS_ERROR("Please check motion YAML file");
+  } else {
+    trajectoryMsgCallback(boost::make_shared<trajectory_msgs::JointTrajectory>(traj_msg));
+  }
+}
+
+bool DynamixelController::getTrajectoryInfo(const std::string yaml_file, trajectory_msgs::JointTrajectory *jnt_tra_msg)
+{
+  YAML::Node file;
+  file = YAML::LoadFile(yaml_file.c_str());
+
+  if (file == NULL)
+    return false;
+
+  YAML::Node joint = file["joint"];
+  uint8_t joint_size = joint["names"].size();
+
+  for (uint8_t index = 0; index < joint_size; index++)
+    {
+      std::string joint_name = joint["names"][index].as<std::string>();
+      jnt_tra_msg->joint_names.push_back(joint["names"][index].as<std::string>());
+    }
+
+  YAML::Node motion = file["motion"];
+  uint8_t motion_size = motion["names"].size();
+
+  for (uint8_t index = 0; index < motion_size; index++)
+    {
+      trajectory_msgs::JointTrajectoryPoint jnt_tra_point;
+
+      std::string name = motion["names"][index].as<std::string>();
+      YAML::Node motion_name = motion[name];
+      for (uint8_t size = 0; size < joint_size; size++)
+        {
+          if (joint_size != motion_name["step"].size())
+            {
+              ROS_ERROR("Please check motion step size. It must be equal to joint size");
+              return 0;
+            }
+
+          jnt_tra_point.positions.push_back(motion_name["step"][size].as<double>());
+
+          // ROS_INFO("motion_name : %s, step : %f", name.c_str(), motion_name["step"][size].as<double>());
+        }
+
+      if (motion_name["time_from_start"] == NULL)
+        {
+          ROS_ERROR("Please check time_from_start. It must be set time_from_start each step");
+          return 0;
+        }
+
+      jnt_tra_point.time_from_start.fromSec(motion_name["time_from_start"].as<double>());
+
+      // ROS_INFO("time_from_start : %f", motion_name["time_from_start"].as<double>());
+
+      jnt_tra_msg->points.push_back(jnt_tra_point);
+    }
+
+  return true;
+}
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "dynamixel_workbench_controllers");
   ros::NodeHandle node_handle("");
+  ros::NodeHandle priv_node_handle("~");
 
   std::string port_name = "/dev/ttyUSB0";
   uint32_t baud_rate = 57600;
@@ -856,6 +923,11 @@ int main(int argc, char **argv)
   ros::Timer read_timer = node_handle.createTimer(ros::Duration(dynamixel_controller.getReadPeriod()), &DynamixelController::readCallback, &dynamixel_controller);
   ros::Timer write_timer = node_handle.createTimer(ros::Duration(dynamixel_controller.getWritePeriod()), &DynamixelController::writeCallback, &dynamixel_controller);
   ros::Timer publish_timer = node_handle.createTimer(ros::Duration(dynamixel_controller.getPublishPeriod()), &DynamixelController::publishCallback, &dynamixel_controller);
+
+  std::string motion_yaml_file = priv_node_handle.param<std::string>("initial_motion", "");
+  if (motion_yaml_file.length() > 0) {
+    dynamixel_controller.sendMotionFromYaml(motion_yaml_file);
+  }
 
   ros::spin();
 

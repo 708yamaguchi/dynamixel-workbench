@@ -134,6 +134,9 @@ class DynamixelController
                                    dynamixel_workbench_msgs::DynamixelCommand::Response &res);
   void followJointTrajectoryActionGoalCallback();
   void followJointTrajectoryActionPreemptCallback();
+
+  void sendMotionFromYaml(const std::string yaml_file);
+  bool getTrajectoryInfo(const std::string yaml_file, trajectory_msgs::JointTrajectory *jnt_tra_msg);
 };
 
 #endif //DYNAMIXEL_WORKBENCH_CONTROLLERS_H
