@@ -336,6 +336,7 @@ void DynamixelController::initSubscriber()
 {
   trajectory_sub_ = priv_node_handle_.subscribe("joint_trajectory", 100, &DynamixelController::trajectoryMsgCallback, this);
   if (is_cmd_vel_topic_) cmd_vel_sub_ = priv_node_handle_.subscribe("cmd_vel", 10, &DynamixelController::commandVelocityCallback, this);
+  slave_joint_states_sub_ = priv_node_handle_.subscribe("slave_joint_states", 100, &DynamixelController::slaveJointStatesCallback, this);
 }
 
 void DynamixelController::initServer()
@@ -601,6 +602,14 @@ void DynamixelController::commandVelocityCallback(const geometry_msgs::Twist::Co
   if (result == false)
   {
     ROS_ERROR("%s", log);
+  }
+}
+
+void DynamixelController::slaveJointStatesCallback(const sensor_msgs::JointState msg)
+{
+  slave_joint_states_ = msg;
+  for (int i = 0; i < slave_joint_states_.name.size(); i++) {
+    teaching_current_thre_[slave_joint_states_.name[i]] = (uint32_t)slave_joint_states_.effort[i];
   }
 }
 

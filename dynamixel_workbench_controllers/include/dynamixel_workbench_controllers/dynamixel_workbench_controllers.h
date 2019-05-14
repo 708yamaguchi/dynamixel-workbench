@@ -68,6 +68,7 @@ class DynamixelController
   // ROS Topic Subscriber
   ros::Subscriber cmd_vel_sub_;
   ros::Subscriber trajectory_sub_;
+  ros::Subscriber slave_joint_states_sub_;
 
   // ROS Service Server
   ros::ServiceServer dynamixel_command_server_;
@@ -99,6 +100,7 @@ class DynamixelController
 
   JointTrajectory *jnt_tra_;
   trajectory_msgs::JointTrajectory *jnt_tra_msg_;
+  sensor_msgs::JointState slave_joint_states_;
 
   double read_period_;
   double write_period_;
@@ -141,6 +143,7 @@ class DynamixelController
   void trajectoryMsgCallback(const trajectory_msgs::JointTrajectory::ConstPtr &msg);
   bool dynamixelCommandMsgCallback(dynamixel_workbench_msgs::DynamixelCommand::Request &req,
                                    dynamixel_workbench_msgs::DynamixelCommand::Response &res);
+  void slaveJointStatesCallback(const sensor_msgs::JointState msg);
   void followJointTrajectoryActionGoalCallback();
   void followJointTrajectoryActionPreemptCallback();
   bool setTeachingModeCallback(std_srvs::Empty::Request &req,
