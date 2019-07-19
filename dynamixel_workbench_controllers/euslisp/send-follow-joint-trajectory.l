@@ -45,8 +45,11 @@
     (ros::publish "/dynamixel_workbench/follow_joint_trajectory_action/goal" follow-joint-trajectory-goal)
     ))
 
-(format t "Joint names:~%")
+(format t "~%Joint names:~%")
 (dolist (jn *joint-names*)
   (format t "~A~%" jn))
 (format t "Current angle-vector:~%")
 (print (angle-vector))
+(format t "Usage:~%")
+(format t "(angle-vector)              ;; get current angle of dynamixel~%")
+(format t "(angle-vector #f(100) 1000) ;; set angle of dynamixel to 100 [deg] by 1000 [ms]~%")
