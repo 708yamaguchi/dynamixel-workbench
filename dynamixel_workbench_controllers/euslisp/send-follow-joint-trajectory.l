@@ -1,3 +1,9 @@
+;; Usage
+;; (if needed) overwrite euslib/config/yamaguchi_dynamixel.yaml
+;; roslaunch euslib dynamixel_controllers.launch
+;; (angle-vector)              ;; get current angle of dynamixel
+;; (angle-vector #f(100) 1000) ;; set angle of dynamixel to 100 [deg] by 1000 [ms]
+
 (ros::load-ros-manifest "roseus")
 (ros::load-ros-manifest "control_msgs")
 (ros::load-ros-manifest "trajectory_msgs")
@@ -7,13 +13,7 @@
 (ros::advertise "/dynamixel_workbench/follow_joint_trajectory_action/goal" control_msgs::FollowJointTrajectoryActionGoal 1)
 (setq *joint-states* (one-shot-subscribe "/dynamixel_workbench/joint_states" sensor_msgs::JointState))
 (setq *joint-names* (send *joint-states* :name))
-(format t "joint names:~%")
-(dolist (jn *joint-names*)
-  (format t "~A~%" jn))
 
-;; Usage
-;; (angle-vector)              ;; get current angle of dynamixel
-;; (angle-vector #f(100) 1000) ;; set angle of dynamixel to 100 [deg] by 1000 [ms]
 (defun angle-vector (&optional (av nil) (time 3000))
   (let ((follow-joint-trajectory-goal (instance control_msgs::FollowJointTrajectoryActionGoal :init))
         (joint-trajectory-point (instance trajectory_msgs::JointTrajectoryPoint :init))
@@ -44,3 +44,9 @@
     (send follow-joint-trajectory-goal :goal :trajectory :joint_names *joint-names*)
     (ros::publish "/dynamixel_workbench/follow_joint_trajectory_action/goal" follow-joint-trajectory-goal)
     ))
+
+(format t "Joint names:~%")
+(dolist (jn *joint-names*)
+  (format t "~A~%" jn))
+(format t "Current angle-vector:~%")
+(print (angle-vector))
